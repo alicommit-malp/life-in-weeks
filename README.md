@@ -1,6 +1,6 @@
 # Your Life in Weeks
 
-**Live at: <https://alicommit-malp.github.io/life-in-weeks>**
+**Live at: <https://alicommit-malp.github.io/life-in-weeks/>**
 
 A free, single-page web app that generates a printable A4 poster of a life,
 one week at a time. Every week already lived is filled in as a solid circle;
