@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Your Life in Weeks</title>
+<meta name="description" content="Generate a printable PDF poster of your life in weeks. Free, runs in your browser, no signup, your birthdate never leaves your device." />
+
+<!-- jsPDF: drawing PDFs directly in the browser -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- Editorial type pairing: a serif display + a clean mono -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --ink: #14110f;
+    --ink-soft: #4a443e;
+    --paper: #f4efe6;
+    --paper-deep: #ebe3d4;
+    --accent: #b8431f;
+    --rule: #c8bfae;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Subtle paper grain */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 20% 10%, rgba(0,0,0,0.025), transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(0,0,0,0.03), transparent 40%);
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 64px 28px 96px;
+  }
+
+  /* Top hairline + label, like a magazine masthead */
+  .masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+    padding: 6px 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 56px;
+  }
+  .masthead .left { display: flex; gap: 18px; }
+  .masthead .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    transform: translateY(-1px);
+  }
+
+  h1 {
+    font-family: "Fraunces", "Times New Roman", serif;
+    font-weight: 800;
+    font-size: clamp(48px, 8vw, 96px);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin: 0 0 24px;
+  }
+  h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent);
+  }
+
+  .lede {
+    font-family: "Fraunces", serif;
+    font-size: 18px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 52ch;
+    margin: 0 0 56px;
+  }
+
+  /* Form: typewriter feel */
+  form {
+    border-top: 1px solid var(--ink);
+    padding-top: 28px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px 32px;
+  }
+  @media (max-width: 540px) {
+    form { grid-template-columns: 1fr; }
+  }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .field input {
+    font-family: "Fraunces", serif;
+    font-size: 22px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--ink);
+    color: var(--ink);
+    padding: 6px 0 8px;
+    outline: none;
+  }
+  .field input:focus { border-bottom-color: var(--accent); }
+  .field input::placeholder { color: var(--rule); font-style: italic; }
+  /* Date picker tweaks */
+  input[type="date"] {
+    color-scheme: light;
+    font-family: "Fraunces", serif;
+  }
+
+  .actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+
+  button {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 14px 22px;
+    cursor: pointer;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    transition: transform 0.08s ease, background 0.15s ease, color 0.15s ease;
+  }
+  button:hover { transform: translateY(-1px); background: var(--accent); border-color: var(--accent); }
+  button:active { transform: translateY(0); }
+  button.ghost {
+    background: transparent;
+    color: var(--ink);
+  }
+  button.ghost:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  button[disabled] { opacity: 0.4; cursor: not-allowed; transform: none !important; background: var(--ink); color: var(--paper); }
+
+  /* Species segmented control */
+  .species-field { grid-column: 1 / -1; }
+  .species {
+    display: flex;
+    border: 1px solid var(--ink);
+    width: fit-content;
+  }
+  .species-btn {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    cursor: pointer;
+    background: transparent;
+    color: var(--ink);
+    border: none;
+    border-right: 1px solid var(--ink);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .species-btn:last-child { border-right: none; }
+  .species-btn:hover {
+    background: var(--paper-deep);
+    color: var(--ink);
+    transform: none;
+    border-color: transparent;
+  }
+  .species-btn.is-selected,
+  .species-btn.is-selected:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  /* Stats card after generation */
+  .stats {
+    margin-top: 56px;
+    border: 1px solid var(--ink);
+    background: var(--paper-deep);
+    padding: 24px 28px;
+    display: none;
+  }
+  .stats.show { display: block; }
+  .stats .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    border-bottom: 1px dashed var(--rule);
+    padding: 14px 0;
+  }
+  .stats .row:last-child { border-bottom: none; }
+  .stats .row .k {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+  .stats .row .v {
+    font-family: "Fraunces", serif;
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .stats .row .v small {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--ink-soft);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-left: 4px;
+  }
+
+  /* Preview */
+  .preview-wrap {
+    margin-top: 40px;
+    display: none;
+  }
+  .preview-wrap.show { display: block; }
+  .preview-label {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .preview {
+    background: white;
+    border: 1px solid var(--rule);
+    padding: 16px;
+    box-shadow: 0 30px 60px -30px rgba(20,17,15,0.25);
+  }
+  .preview svg { width: 100%; height: auto; display: block; }
+
+  /* Footer */
+  .colophon {
+    margin-top: 96px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-size: 11px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+  }
+  .colophon a { color: var(--ink); }
+
+  .err {
+    color: var(--accent);
+    font-size: 12px;
+    margin-top: 10px;
+    min-height: 1em;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="masthead">
+    <div class="left">
+      <span><span class="dot"></span>&nbsp;A printable keepsake</span>
+    </div>
+    <div class="right">No.&nbsp;001 — Free forever</div>
+  </div>
+
+  <h1>Your life,<br /><em>in weeks.</em></h1>
+  <p class="lede">
+    A long human life is roughly 5,200 weeks. Type your name and birthdate
+    below and download a printable A4 poster — every week you've already
+    lived is filled in, the rest are waiting. It's a quiet, useful way to
+    look at time.
+  </p>
+
+  <form id="form" onsubmit="return false;">
+    <div class="field">
+      <label for="name">Name</label>
+      <input id="name" type="text" placeholder="e.g. Ali" autocomplete="given-name" maxlength="40" />
+    </div>
+    <div class="field">
+      <label for="birth">Birthdate</label>
+      <input id="birth" type="date" />
+    </div>
+    <div class="field species-field">
+      <label>Calendar for</label>
+      <div class="species" role="radiogroup" aria-label="Species">
+        <button type="button" class="species-btn is-selected" data-species="human">Human</button>
+        <button type="button" class="species-btn" data-species="dog">Dog</button>
+        <button type="button" class="species-btn" data-species="cat">Cat</button>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="generate" type="button">Generate</button>
+      <button id="download" type="button" class="ghost" disabled>Download PDF</button>
+      <span class="err" id="err"></span>
+    </div>
+  </form>
+
+  <div class="stats" id="stats">
+    <div class="row">
+      <div>
+        <div class="k">Weeks lived</div>
+        <div class="v" id="s-weeks">0</div>
+      </div>
+      <div>
+        <div class="k">Years complete</div>
+        <div class="v" id="s-years">0</div>
+      </div>
+      <div>
+        <div class="k" id="s-pct-label">Of ~5,200</div>
+        <div class="v" id="s-pct">0<small>%</small></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-wrap" id="preview-wrap">
+    <div class="preview-label">
+      <span>Preview · A4 portrait</span>
+      <span id="preview-meta"></span>
+    </div>
+    <div class="preview">
+      <svg id="svg" viewBox="0 0 595 842" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </div>
+
+  <div class="colophon">
+    Drawn in your browser. Your name and birthdate never leave your device — no
+    server, no tracking, no account.
+    <br />
+    Inspired by the well-known "life in weeks" idea (Tim&nbsp;Urban, 2014). This
+    page is a free hobby tool — share it with whoever you'd like.
+  </div>
+
+</div>
+
+<script>
+/* =========================================================================
+ * Calendar generation
+ *   - Single A4 portrait page (595 x 842 pt)
+ *   - YEARS rows x 52 columns of circles, where YEARS depends on species
+ *     (human = 100, dog = 20, cat = 25)
+ *   - Square cells; size = min(width-fit, height-fit) — for shorter spans
+ *     the cells become width-constrained and the grid sits below the title
+ *     with empty space below.
+ *   - Ruler-style year labels; tick step 10 for human, 5 for dog/cat.
+ *   - Right-side tick axis with the same step.
+ * Coordinate convention here: SVG-style (origin top-left, y grows DOWN).
+ * For the PDF we'll feed the same numbers to jsPDF, which also uses top-left.
+ * ========================================================================= */
+
+const PAGE_W = 595.27;   // A4 width  in pt
+const PAGE_H = 841.89;   // A4 height in pt
+const MM = 2.83465;      // 1 mm in pt
+
+const WEEKS = 52;
+
+const LEFT_M   = 14 * MM;
+const RIGHT_M  = 14 * MM;
+const TOP_M    = 22 * MM;   // title block
+const BOTTOM_M = 16 * MM;
+
+const SPECIES = {
+  human: { years: 100, label: "Human", placeholder: "e.g. Ali" },
+  dog:   { years: 20,  label: "Dog",   placeholder: "e.g. Spot" },
+  cat:   { years: 25,  label: "Cat",   placeholder: "e.g. Mochi" },
+};
+
+let selectedSpecies = "human";
+
+function computeLayout(years) {
+  const cellWMax = (PAGE_W - LEFT_M - RIGHT_M) / WEEKS;
+  const cellHMax = (PAGE_H - TOP_M - BOTTOM_M) / years;
+  const cell = Math.min(cellWMax, cellHMax);
+  const gridW = cell * WEEKS;
+  const gridH = cell * years;
+  const leftX = (PAGE_W - gridW) / 2;
+  const gridTop = TOP_M;
+  const circleR = cell * 0.36;
+  // Font sizes scale with cell so dog/cat (larger cells) get proportionate type.
+  const fontMajor = cell * 0.68;
+  const fontMinor = cell * 0.55;
+  const fontAxis  = cell * 0.75;
+  const tickStep = years <= 30 ? 5 : 10;
+  return { years, cell, gridW, gridH, leftX, gridTop, circleR,
+           fontMajor, fontMinor, fontAxis, tickStep };
+}
+
+function weeksLived(birthISO, todayD) {
+  const b = new Date(birthISO + "T00:00:00");
+  if (isNaN(b.getTime())) return 0;
+  const ms = todayD - b;
+  if (ms <= 0) return 0;
+  const days = Math.floor(ms / 86400000);
+  return Math.floor(days / 7);
+}
+
+function yearLabel(year, tickStep) {
+  // Short spans (dog/cat): every year shown in full.
+  if (tickStep <= 5) return String(year);
+  // Long span (human): full number for year 1 and decades, units digit otherwise.
+  if (year % tickStep === 0 || year < 10) return String(year);
+  return String(year % 10);
+}
+
+/* ---------- SVG preview rendering ---------- */
+function renderSVG(name, totalWeeks, years) {
+  const L = computeLayout(years);
+  const svg = document.getElementById("svg");
+
+  let filledD = "";
+  let emptyD = "";
+  // Build circles using the "M cx,cy m -r,0 a r,r 0 1,0 2r,0 a r,r 0 1,0 -2r,0" trick
+  function circlePath(cx, cy, r) {
+    return `M${cx},${cy} m${-r},0 a${r},${r} 0 1,0 ${2*r},0 a${r},${r} 0 1,0 ${-2*r},0 `;
+  }
+
+  for (let r = 0; r < years; r++) {
+    const cy = L.gridTop + (r + 0.5) * L.cell;
+    for (let w = 0; w < WEEKS; w++) {
+      const cx = L.leftX + (w + 0.5) * L.cell;
+      const idx = r * WEEKS + w;
+      if (idx < totalWeeks) filledD += circlePath(cx, cy, L.circleR);
+      else emptyD += circlePath(cx, cy, L.circleR);
+    }
+  }
+
+  // Year labels (ruler-style)
+  let labels = "";
+  for (let r = 0; r < years; r++) {
+    const year = r + 1;
+    const isMajor = (year % L.tickStep === 0 || year === 1);
+    const fs = isMajor ? L.fontMajor : L.fontMinor;
+    const cy = L.gridTop + (r + 0.5) * L.cell + fs * 0.32;
+    labels += `<text x="${L.leftX - 1*MM}" y="${cy}" text-anchor="end"
+      font-family="JetBrains Mono, monospace"
+      font-size="${fs}"
+      font-weight="${isMajor ? 600 : 400}"
+      fill="${isMajor ? '#14110f' : '#776f64'}">${yearLabel(year, L.tickStep)}</text>`;
+  }
+
+  // Right-side tick axis
+  const axisX = L.leftX + L.gridW + 1.2*MM;
+  let axis = `<line x1="${axisX}" y1="${L.gridTop}" x2="${axisX}" y2="${L.gridTop + L.gridH}" stroke="#14110f" stroke-width="0.5"/>`;
+  for (let d = L.tickStep; d <= years; d += L.tickStep) {
+    const y = L.gridTop + d * L.cell;
+    axis += `<line x1="${axisX}" y1="${y}" x2="${axisX + 1.2*MM}" y2="${y}" stroke="#14110f" stroke-width="0.5"/>`;
+    axis += `<text x="${axisX + 1.2*MM + 1*MM}" y="${y + L.fontAxis * 0.32}" font-family="JetBrains Mono, monospace" font-size="${L.fontAxis}" fill="#14110f">${d}</text>`;
+  }
+
+  // Title
+  const title = `<text x="${PAGE_W/2}" y="${14*MM}"
+    text-anchor="middle"
+    font-family="Fraunces, Times New Roman, serif"
+    font-size="22"
+    font-weight="800"
+    fill="#14110f">${escapeXML((name || "YOUR").toUpperCase())}'S LIFE IN WEEKS</text>`;
+
+  // Top axis labels
+  const topAxis = `
+    <text x="${L.leftX}" y="${L.gridTop - 2}" font-family="JetBrains Mono, monospace" font-size="${L.fontAxis}" fill="#776f64">1</text>
+    <text x="${L.leftX + L.gridW}" y="${L.gridTop - 2}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="${L.fontAxis}" fill="#776f64">52   weeks →</text>
+  `;
+
+  // Footer
+  const today = new Date();
+  const yyyy = today.getFullYear(), mm = String(today.getMonth()+1).padStart(2,"0"), dd = String(today.getDate()).padStart(2,"0");
+  const yearsDone = Math.floor(totalWeeks / WEEKS);
+  const remW = totalWeeks % WEEKS;
+  const footY = L.gridTop + L.gridH + 5*MM;
+  const footer = `
+    <text x="${L.leftX}" y="${footY}" font-family="JetBrains Mono, monospace" font-size="6" fill="#776f64">Each row is one year. Each circle is one week.</text>
+    <text x="${L.leftX}" y="${footY + 3.5*MM}" font-family="JetBrains Mono, monospace" font-size="5.5" fill="#776f64">Filled through ${yyyy}-${mm}-${dd}: ${totalWeeks} weeks lived (${yearsDone} full years + ${remW} weeks).</text>
+  `;
+
+  svg.innerHTML = `
+    <rect width="${PAGE_W}" height="${PAGE_H}" fill="white"/>
+    ${title}
+    ${topAxis}
+    <path d="${emptyD}" fill="none" stroke="#14110f" stroke-width="0.4"/>
+    <path d="${filledD}" fill="#14110f" stroke="#14110f" stroke-width="0.4"/>
+    ${labels}
+    ${axis}
+    ${footer}
+  `;
+}
+
+function escapeXML(s) {
+  return s.replace(/[<>&'"]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;",'"':"&quot;"}[c]));
+}
+
+/* ---------- PDF rendering with jsPDF ---------- */
+function renderPDF(name, birthISO, totalWeeks, years) {
+  const L = computeLayout(years);
+  const { jsPDF } = window.jspdf;
+  // jsPDF: unit "pt", origin top-left. y grows down. Same as our SVG.
+  const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
+
+  // Title
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.setTextColor(20, 17, 15);
+  doc.text(`${(name || "YOUR").toUpperCase()}'S LIFE IN WEEKS`, PAGE_W / 2, 14*MM, { align: "center" });
+
+  // Top axis
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(L.fontAxis);
+  doc.setTextColor(120, 110, 100);
+  doc.text("1", L.leftX, L.gridTop - 2);
+  doc.text("52   weeks ->", L.leftX + L.gridW, L.gridTop - 2, { align: "right" });
+
+  // Circles
+  doc.setLineWidth(0.4);
+  for (let r = 0; r < years; r++) {
+    const cy = L.gridTop + (r + 0.5) * L.cell;
+    for (let w = 0; w < WEEKS; w++) {
+      const cx = L.leftX + (w + 0.5) * L.cell;
+      const idx = r * WEEKS + w;
+      if (idx < totalWeeks) {
+        doc.setFillColor(20, 17, 15);
+        doc.setDrawColor(20, 17, 15);
+        doc.circle(cx, cy, L.circleR, "FD");
+      } else {
+        doc.setDrawColor(20, 17, 15);
+        doc.circle(cx, cy, L.circleR, "S");
+      }
+    }
+  }
+
+  // Year labels (ruler-style)
+  for (let r = 0; r < years; r++) {
+    const year = r + 1;
+    const isMajor = (year % L.tickStep === 0 || year === 1);
+    const fs = isMajor ? L.fontMajor : L.fontMinor;
+    const cy = L.gridTop + (r + 0.5) * L.cell + fs * 0.32;
+    doc.setFont("helvetica", isMajor ? "bold" : "normal");
+    doc.setFontSize(fs);
+    doc.setTextColor(isMajor ? 20 : 120, isMajor ? 17 : 110, isMajor ? 15 : 100);
+    doc.text(yearLabel(year, L.tickStep), L.leftX - 1*MM, cy, { align: "right" });
+  }
+
+  // Right-side tick axis
+  const axisX = L.leftX + L.gridW + 1.2*MM;
+  doc.setDrawColor(20, 17, 15);
+  doc.setLineWidth(0.5);
+  doc.line(axisX, L.gridTop, axisX, L.gridTop + L.gridH);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(L.fontAxis);
+  doc.setTextColor(20, 17, 15);
+  for (let d = L.tickStep; d <= years; d += L.tickStep) {
+    const y = L.gridTop + d * L.cell;
+    doc.line(axisX, y, axisX + 1.2*MM, y);
+    doc.text(String(d), axisX + 1.2*MM + 1*MM, y + L.fontAxis * 0.32);
+  }
+
+  // Footer
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,"0");
+  const dd = String(today.getDate()).padStart(2,"0");
+  const yearsDone = Math.floor(totalWeeks / WEEKS);
+  const remW = totalWeeks % WEEKS;
+  const footY = L.gridTop + L.gridH + 5*MM;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  doc.setTextColor(120, 110, 100);
+  doc.text("Each row is one year. Each circle is one week.", L.leftX, footY);
+  doc.setFontSize(5.5);
+  doc.text(
+    `Filled through ${yyyy}-${mm}-${dd}: ${totalWeeks} weeks lived (${yearsDone} full years + ${remW} weeks).`,
+    L.leftX, footY + 3.5*MM
+  );
+
+  const safeName = (name || "your").replace(/[^a-zA-Z0-9_-]/g, "_");
+  doc.save(`${safeName}_life_in_weeks.pdf`);
+}
+
+/* ---------- Wire up the form ---------- */
+const $name = document.getElementById("name");
+const $birth = document.getElementById("birth");
+const $gen = document.getElementById("generate");
+const $dl = document.getElementById("download");
+const $err = document.getElementById("err");
+const $stats = document.getElementById("stats");
+const $sw = document.getElementById("s-weeks");
+const $sy = document.getElementById("s-years");
+const $sp = document.getElementById("s-pct");
+const $spLabel = document.getElementById("s-pct-label");
+const $previewWrap = document.getElementById("preview-wrap");
+const $pmeta = document.getElementById("preview-meta");
+const $speciesBtns = document.querySelectorAll(".species-btn");
+
+let lastState = null;
+
+function setError(msg) { $err.textContent = msg || ""; }
+
+function applySpecies(key) {
+  selectedSpecies = key;
+  const sp = SPECIES[key];
+  $name.placeholder = sp.placeholder;
+  $spLabel.textContent = `Of ~${(sp.years * WEEKS).toLocaleString()}`;
+  $speciesBtns.forEach(btn => {
+    btn.classList.toggle("is-selected", btn.dataset.species === key);
+  });
+  // If we already generated once, re-run with the new species so the preview matches.
+  if (lastState && $name.value.trim() && $birth.value) {
+    generate();
+  }
+}
+
+$speciesBtns.forEach(btn => {
+  btn.addEventListener("click", () => applySpecies(btn.dataset.species));
+});
+applySpecies("human");
+
+function generate() {
+  setError("");
+  const name = $name.value.trim();
+  const birth = $birth.value;
+  if (!name) { setError("Add a name."); $name.focus(); return; }
+  if (!birth) { setError("Pick a birthdate."); $birth.focus(); return; }
+  const today = new Date();
+  const b = new Date(birth + "T00:00:00");
+  if (b > today) { setError("That birthdate is in the future."); return; }
+  const sp = SPECIES[selectedSpecies];
+  // Cap at species max lifespan.
+  const w = Math.min(weeksLived(birth, today), sp.years * WEEKS);
+
+  lastState = { name, birth, totalWeeks: w, years: sp.years };
+
+  // Stats
+  $sw.textContent = w.toLocaleString();
+  $sy.textContent = Math.floor(w / WEEKS);
+  const pct = ((w / (sp.years * WEEKS)) * 100).toFixed(1);
+  $sp.innerHTML = `${pct}<small>%</small>`;
+  $stats.classList.add("show");
+
+  // Render
+  renderSVG(name, w, sp.years);
+  $pmeta.textContent = `${name} · ${birth} · ${sp.label}`;
+  $previewWrap.classList.add("show");
+
+  $dl.disabled = false;
+}
+
+function download() {
+  if (!lastState) return;
+  renderPDF(lastState.name, lastState.birth, lastState.totalWeeks, lastState.years);
+}
+
+$gen.addEventListener("click", generate);
+$dl.addEventListener("click", download);
+
+// Pressing Enter inside name/date triggers generate
+[$name, $birth].forEach(el => {
+  el.addEventListener("keydown", e => { if (e.key === "Enter") generate(); });
+});
+
+// Set max date to today on the date input
+(function() {
+  const t = new Date();
+  const iso = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;
+  $birth.max = iso;
+})();
+</script>
+
+</body>
+</html>

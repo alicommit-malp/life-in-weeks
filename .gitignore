@@ -1,0 +1,8 @@
+# Claude Code: local harness state and instructions
+.claude/
+.claude.json
+.claude.local.json
+CLAUDE.md
+
+# Local-only project notes (kept out of the public repo)
+PROJECT_CONTEXT.md
